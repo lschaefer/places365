@@ -6,10 +6,11 @@ from torch.autograd import Variable as V
 import torchvision.models as models
 from torchvision import transforms as trn
 from torch.nn import functional as F
-import os
+import os,sys
 import numpy as np
-from scipy.misc import imresize as imresize
-import cv2
+#from scipy.misc import imresize as imresize
+# disabling cam for now, i don't think i'll use this and it's taking forever to download cv2
+# import cv2
 from PIL import Image
 
 
@@ -69,7 +70,9 @@ def returnCAM(feature_conv, weight_softmax, class_idx):
         cam = cam - np.min(cam)
         cam_img = cam / np.max(cam)
         cam_img = np.uint8(255 * cam_img)
-        output_cam.append(imresize(cam_img, size_upsample))
+        #output_cam.append(imresize(cam_img, size_upsample))
+        # because I've turned off the call of this function, I haven't tested the line below
+        output_cam.append(Image.fromarray(cam_img).resize(size_upsample))
     return output_cam
 
 def returnTF():
@@ -164,7 +167,7 @@ idx_a = np.argsort(responses_attribute)
 print('--SCENE ATTRIBUTES:')
 print(', '.join([labels_attribute[idx_a[i]] for i in range(-1,-10,-1)]))
 
-
+"""
 # generate class activation mapping
 print('Class activation map is saved as cam.jpg')
 CAMs = returnCAM(features_blobs[0], weight_softmax, [idx[0]])
@@ -175,3 +178,4 @@ height, width, _ = img.shape
 heatmap = cv2.applyColorMap(cv2.resize(CAMs[0],(width, height)), cv2.COLORMAP_JET)
 result = heatmap * 0.4 + img * 0.5
 cv2.imwrite('cam.jpg', result)
+"""
