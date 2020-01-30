@@ -26,7 +26,7 @@ model_names = sorted(name for name in models.__dict__
 
 
 parser = argparse.ArgumentParser(description='PyTorch Places365 Training')
-parser.add_argument('data', metavar='DIR',
+parser.add_argument('--data',default='./', metavar='DIR',
                     help='path to dataset')
 parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet18',
                     help='model architecture: ' +
@@ -57,13 +57,13 @@ parser.add_argument('--pretrained', dest='pretrained', action='store_false',
 parser.add_argument('--num_classes',default=365, type=int, help='num of class in the model')
 parser.add_argument('--dataset',default='places365',help='which dataset to train')
 
+global args, best_prec1
+args = parser.parse_args()
 best_prec1 = 0
 
 
 def main():
-    global args, best_prec1
-    args = parser.parse_args()
-    print args
+    print (args)
     # create model
     print("=> creating model '{}'".format(args.arch))
     if args.arch.lower().startswith('wideresnet'):
@@ -76,8 +76,9 @@ def main():
         model.features = torch.nn.DataParallel(model.features)
         model.cuda()
     else:
-        model = torch.nn.DataParallel(model).cuda()
-    print model
+        # todo model = torch.nn.DataParallel(model).cuda()
+        model = torch.nn.DataParallel(model)
+
     # optionally resume from a checkpoint
     if args.resume:
         if os.path.isfile(args.resume):
@@ -101,7 +102,7 @@ def main():
 
     train_loader = torch.utils.data.DataLoader(
         datasets.ImageFolder(traindir, transforms.Compose([
-            transforms.RandomSizedCrop(224),
+            transforms.RandomResizedCrop(224),
             transforms.RandomHorizontalFlip(),
             transforms.ToTensor(),
             normalize,
@@ -111,7 +112,7 @@ def main():
 
     val_loader = torch.utils.data.DataLoader(
         datasets.ImageFolder(valdir, transforms.Compose([
-            transforms.Scale(256),
+            transforms.Resize(256),
             transforms.CenterCrop(224),
             transforms.ToTensor(),
             normalize,
@@ -120,7 +121,8 @@ def main():
         num_workers=args.workers, pin_memory=True)
 
     # define loss function (criterion) and pptimizer
-    criterion = nn.CrossEntropyLoss().cuda()
+    #criterion = nn.CrossEntropyLoss().cuda() # todo change back
+    criterion = nn.CrossEntropyLoss()
 
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
@@ -159,24 +161,30 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
     # switch to train mode
     model.train()
-
     end = time.time()
+
     for i, (input, target) in enumerate(train_loader):
+        print ('looping')
+        print (input.shape,'\t',target.shape)
+
         # measure data loading time
         data_time.update(time.time() - end)
 
-        target = target.cuda(async=True)
+        #target = target.cuda(async=True)
+        #target = target.cuda() # todo
         input_var = torch.autograd.Variable(input)
         target_var = torch.autograd.Variable(target)
         # compute output
         output = model(input_var)
+        output = output.view(output.shape[0]) # leigh hack. won't work for original
+        print (output.shape)
         loss = criterion(output, target_var)
 
         # measure accuracy and record loss
-        prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
-        losses.update(loss.data[0], input.size(0))
-        top1.update(prec1[0], input.size(0))
-        top5.update(prec5[0], input.size(0))
+        #prec1, prec5 = accuracy(output.data, target, topk=(0,))
+        losses.update(loss.data, input.size(0))
+        #top1.update(prec1[0], input.size(0))
+        #top5.update(prec5[0], input.size(0))
 
         # compute gradient and do SGD step
         optimizer.zero_grad()
@@ -208,33 +216,36 @@ def validate(val_loader, model, criterion):
     model.eval()
 
     end = time.time()
-    for i, (input, target) in enumerate(val_loader):
-        target = target.cuda(async=True)
-        input_var = torch.autograd.Variable(input, volatile=True)
-        target_var = torch.autograd.Variable(target, volatile=True)
-
-        # compute output
-        output = model(input_var)
-        loss = criterion(output, target_var)
-
-        # measure accuracy and record loss
-        prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
-        losses.update(loss.data[0], input.size(0))
-        top1.update(prec1[0], input.size(0))
-        top5.update(prec5[0], input.size(0))
-
-        # measure elapsed time
-        batch_time.update(time.time() - end)
-        end = time.time()
-
-        if i % args.print_freq == 0:
-            print('Test: [{0}/{1}]\t'
-                  'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
-                  'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
-                  'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
-                  'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
-                   i, len(val_loader), batch_time=batch_time, loss=losses,
-                   top1=top1, top5=top5))
+    with torch.no_grad():
+        for i, (input, target) in enumerate(val_loader):
+            #target = target.cuda(async=True)
+            # target = target.cuda() todo
+            input_var = torch.autograd.Variable(input)
+            target_var = torch.autograd.Variable(target)
+            
+            # compute output
+            output = model(input_var)
+            output = output.view(output.shape[0]) # leigh hack. won't work for original
+            loss = criterion(output, target_var)
+  
+            # measure accuracy and record loss
+            # prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
+            losses.update(loss.data, input.size(0))
+            # top1.update(prec1[0], input.size(0))
+            # top5.update(prec5[0], input.size(0))
+  
+            # measure elapsed time
+            batch_time.update(time.time() - end)
+            end = time.time()
+  
+            if i % args.print_freq == 0:
+                print('Test: [{0}/{1}]\t'
+                      'Time {batch_time.val:.3f} ({batch_time.avg:.3f})\t'
+                      'Loss {loss.val:.4f} ({loss.avg:.4f})\t'
+                      'Prec@1 {top1.val:.3f} ({top1.avg:.3f})\t'
+                      'Prec@5 {top5.val:.3f} ({top5.avg:.3f})'.format(
+                        i, len(val_loader), batch_time=batch_time, loss=losses,
+                        top1=top1, top5=top5))
 
     print(' * Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f}'
           .format(top1=top1, top5=top5))
@@ -278,7 +289,7 @@ def accuracy(output, target, topk=(1,)):
     maxk = max(topk)
     batch_size = target.size(0)
 
-    _, pred = output.topk(maxk, 1, True, True)
+    _, pred = output.topk(0, 1, True, True)
     pred = pred.t()
     correct = pred.eq(target.view(1, -1).expand_as(pred))
 
