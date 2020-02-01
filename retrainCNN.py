@@ -4,13 +4,16 @@ import train_placesCNN # this is where intial training was done
 import scenicScoreDataset # to accommodate our data structure
 
 from sklearn.model_selection import train_test_split
-import os
+import os,sys
 import torch
 import torch.nn as nn
 import torch.nn.parallel
 import torch.backends.cudnn as cudnn
 import torchvision.transforms as transforms
 import torchvision.models as models
+
+import numpy as np
+import matplotlib.pyplot as plt
 
 debug=False
 evaluate=False
@@ -24,7 +27,7 @@ if not os.path.exists('data/imagesWithJpg.tsv'):
   sys.exit(1)
 
 #scenicDF = pd.read_csv('data/imagesWithJpg.csv')
-scenicDF = pd.read_csv('data/imagesWithJpg.tsv',sep='\t',nrows=500) # for debugging locally, update on aws
+scenicDF = pd.read_csv('data/imagesWithJpg.tsv',sep='\t')
 scenicDF = scenicDF[['Images','Average']]
 
 # cleaning is done in creation of this csv
@@ -54,22 +57,22 @@ myValidationTransforms = transforms.Compose([
 
 training_set = scenicScoreDataset.ScenicScoreDataset(image_train,score_train,transform=myTrainTransforms,resizeImage=True)
 train_loader = torch.utils.data.DataLoader(training_set,
-                                           batch_size=256,
+                                           batch_size=100,
                                            shuffle=True,
-                                           num_workers=6,
+                                           num_workers=1,
                                            pin_memory=True)
 
 validation_set = scenicScoreDataset.ScenicScoreDataset(image_val,score_val,transform=myValidationTransforms,resizeImage=True)
 val_loader = torch.utils.data.DataLoader(validation_set,
-                                         batch_size=256,
+                                         batch_size=100,
                                          shuffle=True,
-                                         num_workers=6,
+                                         num_workers=1,
                                          pin_memory=True)
 
 
 
 # 2. Create the base model from the pre-trained model
-cudnn.benchmark = True
+#cudnn.benchmark = True
 
 arch = 'resnet18' # using the resnet architecture
 baseModelFile = '%s_places365.pth.tar' % arch # using the places365 model
@@ -102,13 +105,13 @@ for param in baseModel.module.fc.parameters():
 criterion = torch.nn.MSELoss() # regression mean squared loss
 # soon : criterion = torch.nn.MSELoss().cuda() # regression mean squared loss
 # copied from places training
-lr = 0.1 # learning rate
+lr = 0.0001 # learning rate
 momentum = 0.9
 weight_decay = 1e-4
-optimizer = torch.optim.SGD(baseModel.parameters(), lr,
-                            momentum=momentum,
-                            weight_decay=weight_decay)
-cudnn.benchmark = True # what does this do?
+optimizer = torch.optim.SGD(baseModel.parameters(), lr)#,
+#                            momentum=momentum,
+#                            weight_decay=weight_decay)
+#cudnn.benchmark = True # what does this do?
 
 
 # https://discuss.pytorch.org/t/pytorch-cnn-for-regression/33436/3: 
@@ -124,30 +127,46 @@ if debug:
   print (baseModel)
 
 # 4. Run validation or training
-# copied from original repo
 
 if evaluate:
-  train_placesCNN.validate(val_loader, baseModel, criterion)
-  sys.exit(1)
+  prec1, lossV,actual,predicted = train_placesCNN.validate(val_loader, baseModel, criterion)
 
-for epoch in range(0, 90):
-  train_placesCNN.adjust_learning_rate(optimizer, epoch)
+else:
+  lossesT,lossesV = [],[] # for plotting
+  nEpochs=90
+  for epoch in range(0, nEpochs):
+    train_placesCNN.adjust_learning_rate(optimizer, epoch)
 
-  # train for one epoch
-  train_placesCNN.train(train_loader, baseModel, criterion, optimizer, epoch)
+    # train for one epoch
+    thisLoss,actual,predicted = train_placesCNN.train(train_loader, baseModel, criterion, optimizer, epoch)
+    lossesT.append(np.sqrt(float(thisLoss.val)))
 
-  # evaluate on validation set
-  prec1 = train_placesCNN.validate(val_loader, baseModel, criterion)
+    # evaluate on validation set
+    prec1,losses,actual,predicted = train_placesCNN.validate(val_loader, baseModel, criterion)
+    lossesV.append(np.sqrt(float(losses.val)))
 
-  # remember best prec@1 and save checkpoint
-  is_best = prec1 > best_prec1
-  best_prec1 = max(prec1, best_prec1)
-  train_placesCNN.save_checkpoint({
-      'epoch': epoch + 1,
-      'arch': arch,
-      'state_dict': baseModel.state_dict(),
-      'best_prec1': best_prec1,
-      }, is_best, 'sceneryScore_latest.pth.tar')
+    # remember best prec@1 and save checkpoint
+    is_best = prec1 > best_prec1
+    best_prec1 = max(prec1, best_prec1)
+    train_placesCNN.save_checkpoint({
+        'epoch': epoch + 1,
+        'arch': arch,
+        'state_dict': baseModel.state_dict(),
+        'best_prec1': best_prec1,
+        'losses' : losses,
+        }, is_best, 'sceneryScore_latest.pth.tar')
 
+# 5. Plot stuff
+
+  # loss vs epoch (only for training, not for validation-only processing)
+  epochs = [it for it in range(0,nEpochs)]
+  plt.plot(epochs,lossesT, 'b', epochs,lossesV, 'g')
+  plt.xlabel('Epoch')
+  plt.ylabel('Root Mean Squared Error')
+  plt.savefig('errorVsEpoch.pdf')
+
+# predicted vs actual scenery score
+
+# (predicted - actual) vs actual
 
 

@@ -136,10 +136,10 @@ def main():
         adjust_learning_rate(optimizer, epoch)
 
         # train for one epoch
-        train(train_loader, model, criterion, optimizer, epoch)
+        thisLoss = train(train_loader, model, criterion, optimizer, epoch)
 
         # evaluate on validation set
-        prec1 = validate(val_loader, model, criterion)
+        prec1,losstest,actual,predicted = validate(val_loader, model, criterion)
 
         # remember best prec@1 and save checkpoint
         is_best = prec1 > best_prec1
@@ -149,6 +149,7 @@ def main():
             'arch': args.arch,
             'state_dict': model.state_dict(),
             'best_prec1': best_prec1,
+            'losses' : losstest,
         }, is_best, args.arch.lower())
 
 
@@ -163,22 +164,27 @@ def train(train_loader, model, criterion, optimizer, epoch):
     model.train()
     end = time.time()
 
-    for i, (input, target) in enumerate(train_loader):
-        print ('looping')
-        print (input.shape,'\t',target.shape)
+    actual,predicted = [],[]
 
+    for i, (input, target) in enumerate(train_loader):
+        # input and target both have entries for each image
         # measure data loading time
         data_time.update(time.time() - end)
 
         #target = target.cuda(async=True)
         #target = target.cuda() # todo
         input_var = torch.autograd.Variable(input)
-        target_var = torch.autograd.Variable(target)
+        #target_var = torch.autograd.Variable(target)
+        target_var = target
+
         # compute output
-        output = model(input_var)
+        output = model.forward(input_var)
         output = output.view(output.shape[0]) # leigh hack. won't work for original
-        print (output.shape)
         loss = criterion(output, target_var)
+
+        for it,score in enumerate(target):
+            actual.append(float(score))
+            predicted.append(float(output[it]))
 
         # measure accuracy and record loss
         #prec1, prec5 = accuracy(output.data, target, topk=(0,))
@@ -205,6 +211,8 @@ def train(train_loader, model, criterion, optimizer, epoch):
                    epoch, i, len(train_loader), batch_time=batch_time,
                    data_time=data_time, loss=losses, top1=top1, top5=top5))
 
+    return losses, actual, predicted
+
 
 def validate(val_loader, model, criterion):
     batch_time = AverageMeter()
@@ -215,18 +223,25 @@ def validate(val_loader, model, criterion):
     # switch to evaluate mode
     model.eval()
 
+    predicted,actual = [],[] # will be a huge list, one entry for each image
+
     end = time.time()
     with torch.no_grad():
         for i, (input, target) in enumerate(val_loader):
             #target = target.cuda(async=True)
             # target = target.cuda() todo
             input_var = torch.autograd.Variable(input)
-            target_var = torch.autograd.Variable(target)
+            #target_var = torch.autograd.Variable(target)
+            target_var = target
             
             # compute output
             output = model(input_var)
             output = output.view(output.shape[0]) # leigh hack. won't work for original
             loss = criterion(output, target_var)
+            
+            for it,score in enumerate(target):
+                actual.append(float(score))
+                predicted.append(float(output[it]))
   
             # measure accuracy and record loss
             # prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
@@ -250,7 +265,7 @@ def validate(val_loader, model, criterion):
     print(' * Prec@1 {top1.avg:.3f} Prec@5 {top5.avg:.3f}'
           .format(top1=top1, top5=top5))
 
-    return top1.avg
+    return top1.avg,losses, actual, predicted
 
 
 def save_checkpoint(state, is_best, filename='checkpoint.pth.tar'):
