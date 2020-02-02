@@ -42,7 +42,6 @@ def runRetrain():
   for idx,row in scenicDF.iterrows():
     imgPath = row.Images.replace('data',dataDir)
     # hack to accommodate the slow download of files. remove this if statement later!
-    print(imgPath)
     if os.path.exists(imgPath):
       images.append(imgPath)
       averages.append(row.Average)
