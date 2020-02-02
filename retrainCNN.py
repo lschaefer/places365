@@ -98,7 +98,7 @@ def runRetrain():
     weight_url = 'http://places2.csail.mit.edu/models_places365/' + baseModelFile
     os.system('wget ' + weight_url)
      
-  device = torch.device('cuda')
+  device = torch.device('cuda:0')
   baseModel = models.__dict__[arch](num_classes=365)
   baseModel = torch.nn.DataParallel(baseModel)
   checkpoint = torch.load(baseModelFile,  map_location=device)
