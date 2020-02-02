@@ -49,7 +49,7 @@ def runRetrain():
   if len(images)==0 and len(averages)==0:
     print("there were no valid entries, exiting")
 
-  scenicDF = pd.DataFrame(list(zip(images,averages)),columns=['Images','Averages'])
+  scenicDF = pd.DataFrame(list(zip(images,averages)),columns=['Images','Average'])
   
   #  - split into train and test groups
   image_train, image_val, score_train, score_val = train_test_split(
