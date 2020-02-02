@@ -172,7 +172,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
 
         #target = target.cuda(async=True)
         target = target.cuda()
-        input_var = torch.autograd.Variable(input)
+        input_var = torch.autograd.Variable(input).cuda()
         #target_var = torch.autograd.Variable(target)
         target_var = target
 
@@ -229,7 +229,7 @@ def validate(val_loader, model, criterion):
         for i, (input, target) in enumerate(val_loader):
             #target = target.cuda(async=True)
             target = target.cuda()
-            input_var = torch.autograd.Variable(input)
+            input_var = torch.autograd.Variable(input).cuda()
             #target_var = torch.autograd.Variable(target)
             target_var = target
             
