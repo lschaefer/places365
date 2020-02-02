@@ -76,8 +76,8 @@ def main():
         model.features = torch.nn.DataParallel(model.features)
         model.cuda()
     else:
-        # todo model = torch.nn.DataParallel(model).cuda()
-        model = torch.nn.DataParallel(model)
+        model = torch.nn.DataParallel(model).cuda()
+        # model = torch.nn.DataParallel(model)
 
     # optionally resume from a checkpoint
     if args.resume:
@@ -121,8 +121,7 @@ def main():
         num_workers=args.workers, pin_memory=True)
 
     # define loss function (criterion) and pptimizer
-    #criterion = nn.CrossEntropyLoss().cuda() # todo change back
-    criterion = nn.CrossEntropyLoss()
+    criterion = nn.CrossEntropyLoss().cuda()
 
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
@@ -172,7 +171,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
         data_time.update(time.time() - end)
 
         #target = target.cuda(async=True)
-        #target = target.cuda() # todo
+        target = target.cuda()
         input_var = torch.autograd.Variable(input)
         #target_var = torch.autograd.Variable(target)
         target_var = target
@@ -229,7 +228,7 @@ def validate(val_loader, model, criterion):
     with torch.no_grad():
         for i, (input, target) in enumerate(val_loader):
             #target = target.cuda(async=True)
-            # target = target.cuda() todo
+            target = target.cuda()
             input_var = torch.autograd.Variable(input)
             #target_var = torch.autograd.Variable(target)
             target_var = target
