@@ -22,22 +22,24 @@ best_prec1=0
 # https://pytorch.org/tutorials/beginner/transfer_learning_tutorial.html
 def runRetrain():
   # 1. load the data
-  if not os.path.exists('data/newImagesWithJpg.tsv'):
+  dataDir = sys.argv[1] # clean this up later, use argparse
+
+  if not os.path.exists(dataDir+'/newImagesWithJpg.tsv'):
     print ("ERROR! You need to make the correct input dataset (scenic or not data with local paths). Run `python makeCsvWithLocalPath.py` (it takes quite some time) and try again." )
     sys.exit(1)
 
   #scenicDF = pd.read_csv('data/imagesWithJpg.csv')
-  scenicDF = pd.read_csv('data/newImagesWithJpg.tsv',sep='\t')
+  scenicDF = pd.read_csv(dataDir+'/newImagesWithJpg.tsv',sep='\t')
   scenicDF = scenicDF[['Images','Average']]
   # cleaning is done in creation of this csv
 
-  # hack to accommodate the slow download of files. remove later!
   images,averages = [],[]
   for idx,row in scenicDF.iterrows():
-    if os.path.exists(row.Images):
-      images.append(row.Images)
+    imgPath = row.Images.replace('data',dataDir)
+    # hack to accommodate the slow download of files. remove this if statement later!
+    if os.path.exists(imgPath):
+      images.append(imgPath)
       averages.append(row.Average)
-
   scenicDF = pd.DataFrame(list(zip(images,averages)),columns=['Images','Averages'])
   
   #  - split into train and test groups
