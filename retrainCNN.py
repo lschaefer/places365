@@ -98,7 +98,7 @@ def runRetrain():
     weight_url = 'http://places2.csail.mit.edu/models_places365/' + baseModelFile
     os.system('wget ' + weight_url)
      
-  device = torch.device('cpu')#cuda')
+  device = torch.device('cuda')
   baseModel = models.__dict__[arch](num_classes=365)
   baseModel = torch.nn.DataParallel(baseModel)
   checkpoint = torch.load(baseModelFile,  map_location=device)
@@ -120,8 +120,8 @@ def runRetrain():
     param.requires_grad = True
   
   
-  criterion = torch.nn.MSELoss() # regression mean squared loss
-  #criterion = torch.nn.MSELoss().cuda() # regression mean squared loss
+  #criterion = torch.nn.MSELoss() # regression mean squared loss
+  criterion = torch.nn.MSELoss().cuda() # regression mean squared loss
   # copied from places training
   lr = 0.0001 # learning rate
   momentum = 0.9
