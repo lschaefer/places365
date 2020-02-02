@@ -14,15 +14,20 @@ import torchvision.models as models
 
 import numpy as np
 import matplotlib.pyplot as plt
+import argparse
 
 debug=False
 evaluate=False
 best_prec1=0
 
+parser = argparse.ArgumentParser()
+parser.add_argument('--inDataDir', default='data/')
+args = parser.parse_args()
+
 # https://pytorch.org/tutorials/beginner/transfer_learning_tutorial.html
 def runRetrain():
   # 1. load the data
-  dataDir = sys.argv[1] # clean this up later, use argparse
+  dataDir = args.inDataDir
 
   if not os.path.exists(dataDir+'/newImagesWithJpg.tsv'):
     print ("ERROR! You need to make the correct input dataset (scenic or not data with local paths). Run `python makeCsvWithLocalPath.py` (it takes quite some time) and try again." )
