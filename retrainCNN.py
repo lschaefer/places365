@@ -16,13 +16,13 @@ import numpy as np
 import matplotlib.pyplot as plt
 import argparse
 
-debug=False
-evaluate=False
-best_prec1=0
-
 parser = argparse.ArgumentParser()
 parser.add_argument('--inDataDir', default='data/')
+global args, best_prec1, debug, evaluate
 args = parser.parse_args()
+best_prec1 = 0
+debug=False
+evaluate=False
 
 # https://pytorch.org/tutorials/beginner/transfer_learning_tutorial.html
 def runRetrain():
@@ -34,7 +34,7 @@ def runRetrain():
     sys.exit(1)
 
   #scenicDF = pd.read_csv('data/imagesWithJpg.csv')
-  scenicDF = pd.read_csv(dataDir+'/newImagesWithJpg.tsv',sep='\t')
+  scenicDF = pd.read_csv(dataDir+'/newImagesWithJpg.tsv',sep='\t',nrows=500)
   scenicDF = scenicDF[['Images','Average']]
   # cleaning is done in creation of this csv
 
@@ -98,39 +98,40 @@ def runRetrain():
     weight_url = 'http://places2.csail.mit.edu/models_places365/' + baseModelFile
     os.system('wget ' + weight_url)
      
-  device = torch.device('cuda')
+  device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+
   baseModel = models.__dict__[arch](num_classes=365)
   baseModel = torch.nn.DataParallel(baseModel)
   checkpoint = torch.load(baseModelFile,  map_location=device)
-  baseModel.to(device)
   baseModel.load_state_dict(checkpoint['state_dict'])
+  baseModel = baseModel.to(device)
   
   # 3. Set up retraining
   # freeze all layers
   for param in baseModel.module.parameters():
+  #for param in baseModel.parameters():
     param.requires_grad = False
-  
+
   if debug:
     print (baseModel)
   # update the fully connected layer
   nInF,nOutF = baseModel.module.fc.in_features,1 # input size from original; 1 output
+  #nInF,nOutF = baseModel.fc.in_features,1 # input size from original; 1 output
   baseModel.module.fc = torch.nn.Linear(nInF,nOutF)
+  #baseModel.fc = torch.nn.Linear(nInF,nOutF)
   
   for param in baseModel.module.fc.parameters():
+  #for param in baseModel.fc.parameters():
     param.requires_grad = True
-  
-  
-  #criterion = torch.nn.MSELoss() # regression mean squared loss
-  criterion = torch.nn.MSELoss().cuda() # regression mean squared loss
-  # copied from places training
-  lr = 0.0001 # learning rate
+  criterion = torch.nn.MSELoss().to(device) # regression mean squared loss
+
+  lr = 0.0000001 # learning rate
   momentum = 0.9
   weight_decay = 1e-4
-  optimizer = torch.optim.SGD(baseModel.parameters(), lr)#,
-  #                            momentum=momentum,
-  #                            weight_decay=weight_decay)
-  #cudnn.benchmark = True # what does this do?
-  
+  optimizer = torch.optim.SGD(baseModel.module.parameters(), lr)#,
+                              #momentum=momentum,
+                              #weight_decay=weight_decay)
+  #cudnn.benchmark=True
   
   # https://discuss.pytorch.org/t/pytorch-cnn-for-regression/33436/3: 
   # I suspect that the only thing I need to do different in a regression problem in Pytorch
@@ -145,9 +146,11 @@ def runRetrain():
     print (baseModel)
   
   # 4. Run validation or training
-  
+  actualFull,predicFull = [],[] # full lists of actual and predicted scores
   if evaluate:
-    prec1, lossV,actual,predicted = train_placesCNN.validate(val_loader, baseModel, criterion)
+    prec1, lossV,actual,predicted = train_placesCNN.validate(val_loader, baseModel, criterion, device)
+    actualFull.append(act for act in actual)
+    predicFull.append(prd for prd in predicted)
   
   else:
     lossesT,lossesV = [],[] # for plotting
@@ -156,36 +159,52 @@ def runRetrain():
       train_placesCNN.adjust_learning_rate(optimizer, epoch)
   
       # train for one epoch
-      thisLoss,actual,predicted = train_placesCNN.train(train_loader, baseModel, criterion, optimizer, epoch)
+      thisLoss,actual,predicted = train_placesCNN.train(train_loader, baseModel, criterion, optimizer, epoch, device)
       lossesT.append(np.sqrt(float(thisLoss.val)))
   
       # evaluate on validation set
-      prec1,losses,actual,predicted = train_placesCNN.validate(val_loader, baseModel, criterion)
+      prec1,losses,actual,predicted = train_placesCNN.validate(val_loader, baseModel, criterion, device)
       lossesV.append(np.sqrt(float(losses.val)))
+      actualFull.append(act for act in actual)
+      predicFull.append(prd for prd in predicted)
       
       # remember best prec@1 and save checkpoint
-      is_best = prec1 > best_prec1
-      best_prec1 = max(prec1, best_prec1)
+      #is_best = prec1 > best_prec1
+      #best_prec1 = max(prec1, best_prec1)
       train_placesCNN.save_checkpoint({
           'epoch': epoch + 1,
           'arch': arch,
           'state_dict': baseModel.state_dict(),
-          'best_prec1': best_prec1,
+#          'best_prec1': best_prec1,
           'losses' : losses,
-          }, is_best, 'sceneryScore_latest.pth.tar')
+#          }, is_best, 'sceneryScore_latest.pth.tar')
+          }, 'sceneryScore_latest.pth.tar')
           
-  # 5. Plot stuff
-          
-      # loss vs epoch (only for training, not for validation-only processing)
+# 5. Plot stuff
+
+    # loss vs epoch (only for training, not for validation-only processing)
     epochs = [it for it in range(0,nEpochs)]
-    plt.plot(epochs,lossesT, 'b', epochs,lossesV, 'g')
+    plt.plot(epochs,lossesT, 'b', label='Train')
+    plt.plot(epochs,lossesV, 'g', label='Test')
+
   plt.xlabel('Epoch')
   plt.ylabel('Root Mean Squared Error')
+  plt.legend(loc='best')  
   plt.savefig('errorVsEpoch.pdf')
     
+  plt.clf() # clear
   # predicted vs actual scenery score
-    
+  plt.plot(actualFull,predicFull)
+  plt.xlabel('Actual Scenery Score')
+  plt.ylabel('Predicted Scenery Score')
+  plt.savefig('predictedVsActual.pdf')
+
+  plt.clf()
   # (predicted - actual) vs actual
+  plt.plot(actualFull,(predicFull-actualFull))
+  plt.xlabel('Actual Scenery Score')
+  plt.ylabel('(Predicted-Actual) Scenery Score')
+  plt.savefig('diffVsActual.pdf')
     
     
 if __name__=='__main__':

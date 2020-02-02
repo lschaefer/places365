@@ -74,10 +74,11 @@ def main():
 
     if args.arch.lower().startswith('alexnet') or args.arch.lower().startswith('vgg'):
         model.features = torch.nn.DataParallel(model.features)
-        model.cuda()
     else:
-        model = torch.nn.DataParallel(model).cuda()
-        # model = torch.nn.DataParallel(model)
+        model = torch.nn.DataParallel(model)
+
+    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
+    model.to(device)
 
     # optionally resume from a checkpoint
     if args.resume:
@@ -92,7 +93,7 @@ def main():
         else:
             print("=> no checkpoint found at '{}'".format(args.resume))
 
-    cudnn.benchmark = True
+    #cudnn.benchmark = True
 
     # Data loading code
     traindir = os.path.join(args.data, 'train')
@@ -121,24 +122,24 @@ def main():
         num_workers=args.workers, pin_memory=True)
 
     # define loss function (criterion) and pptimizer
-    criterion = nn.CrossEntropyLoss().cuda()
+    criterion = nn.CrossEntropyLoss().to(device)
 
     optimizer = torch.optim.SGD(model.parameters(), args.lr,
                                 momentum=args.momentum,
                                 weight_decay=args.weight_decay)
 
     if args.evaluate:
-        validate(val_loader, model, criterion)
+        validate(val_loader, model, criterion, device)
         return
 
     for epoch in range(args.start_epoch, args.epochs):
-        adjust_learning_rate(optimizer, epoch)
+        #adjust_learning_rate(optimizer, epoch)
 
         # train for one epoch
-        thisLoss = train(train_loader, model, criterion, optimizer, epoch)
+        thisLoss = train(train_loader, model, criterion, optimizer, epoch, device)
 
         # evaluate on validation set
-        prec1,losstest,actual,predicted = validate(val_loader, model, criterion)
+        prec1,losstest,actual,predicted = validate(val_loader, model, criterion, device)
 
         # remember best prec@1 and save checkpoint
         is_best = prec1 > best_prec1
@@ -152,7 +153,7 @@ def main():
         }, is_best, args.arch.lower())
 
 
-def train(train_loader, model, criterion, optimizer, epoch):
+def train(train_loader, model, criterion, optimizer, epoch, device):
     batch_time = AverageMeter()
     data_time = AverageMeter()
     losses = AverageMeter()
@@ -169,17 +170,23 @@ def train(train_loader, model, criterion, optimizer, epoch):
         # input and target both have entries for each image
         # measure data loading time
         data_time.update(time.time() - end)
+        input.to(device)
+        target.to(device)
 
-        target = target.cuda(async=True)
-        #target = target.cuda()
         input_var = torch.autograd.Variable(input)
-        #target_var = torch.autograd.Variable(target)
+        target_var = torch.autograd.Variable(target)
+        input_var = input
         target_var = target
+        #print ("")
+        #print ('tran tar: ',target_var)
+        optimizer.zero_grad()
 
         # compute output
-        output = model.forward(input_var)
+        output = model(input_var)
         output = output.view(output.shape[0]) # leigh hack. won't work for original
         loss = criterion(output, target_var)
+        #print ('tran out: ',output)
+        #print ('loss : ',loss.data)
 
         for it,score in enumerate(target):
             actual.append(float(score))
@@ -192,7 +199,6 @@ def train(train_loader, model, criterion, optimizer, epoch):
         #top5.update(prec5[0], input.size(0))
 
         # compute gradient and do SGD step
-        optimizer.zero_grad()
         loss.backward()
         optimizer.step()
 
@@ -213,7 +219,7 @@ def train(train_loader, model, criterion, optimizer, epoch):
     return losses, actual, predicted
 
 
-def validate(val_loader, model, criterion):
+def validate(val_loader, model, criterion, device):
     batch_time = AverageMeter()
     losses = AverageMeter()
     top1 = AverageMeter()
@@ -227,16 +233,21 @@ def validate(val_loader, model, criterion):
     end = time.time()
     with torch.no_grad():
         for i, (input, target) in enumerate(val_loader):
-            target = target.cuda(async=True)
-            #target = target.cuda()
+
+            input.to(device)
+            target.to(device)
             input_var = torch.autograd.Variable(input)
-            #target_var = torch.autograd.Variable(target)
-            target_var = target
+            target_var = torch.autograd.Variable(target)
+            #target_var = target
+            #print ('vldt tar: ',target_var)
             
             # compute output
             output = model(input_var)
+            #output = output.view(output.shape[0]) # leigh hack. won't work for original
             output = output.view(output.shape[0]) # leigh hack. won't work for original
+            #print ('vldt out: ',output)
             loss = criterion(output, target_var)
+            #print ('loss : ',loss.data)
             
             for it,score in enumerate(target):
                 actual.append(float(score))
