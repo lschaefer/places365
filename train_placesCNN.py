@@ -27,6 +27,7 @@ model_names = sorted(name for name in models.__dict__
 parser = argparse.ArgumentParser(description='PyTorch Places365 Training')
 parser.add_argument('--data',default='./', metavar='DIR',
                     help='path to dataset')
+parser.add_argument('--inDataDir', default='data/')
 parser.add_argument('--arch', '-a', metavar='ARCH', default='resnet18',
                     help='model architecture: ' +
                         ' | '.join(model_names) +
