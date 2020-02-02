@@ -42,9 +42,14 @@ def runRetrain():
   for idx,row in scenicDF.iterrows():
     imgPath = row.Images.replace('data',dataDir)
     # hack to accommodate the slow download of files. remove this if statement later!
+    print(imgPath)
     if os.path.exists(imgPath):
       images.append(imgPath)
       averages.append(row.Average)
+
+  if len(images)==0 and len(averages)==0:
+    print("there were no valid entries, exiting")
+
   scenicDF = pd.DataFrame(list(zip(images,averages)),columns=['Images','Averages'])
   
   #  - split into train and test groups
