@@ -98,11 +98,10 @@ def runRetrain():
     weight_url = 'http://places2.csail.mit.edu/models_places365/' + baseModelFile
     os.system('wget ' + weight_url)
      
-  #device = torch.device('cpu') # on my laptop. update when on aws!
+  device = torch.device('cuda') # on my laptop. update when on aws!
   baseModel = models.__dict__[arch](num_classes=365)
   baseModel = torch.nn.DataParallel(baseModel)
-  #checkpoint = torch.load(baseModelFile,  map_location=device) # same here, update on aws!
-  checkpoint = torch.load(baseModelFile)
+  checkpoint = torch.load(baseModelFile,  map_location=device)
   
   baseModel.load_state_dict(checkpoint['state_dict'])
   
