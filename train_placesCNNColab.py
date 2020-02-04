@@ -189,18 +189,24 @@ def main():
         plt.savefig('errorVsEpoch.pdf')
     
     plt.clf() # clear
-#   # predicted vs actual scenery score
-#     plt.plot(actualFull,predicFull)
-#     plt.xlabel('Actual Scenery Score')
-#     plt.ylabel('Predicted Scenery Score')
-#     plt.savefig('predictedVsActual.pdf')
-# 
-#     plt.clf()
-#   # (predicted - actual) vs actual
-#     plt.plot(actualFull,(predicFull-actualFull))
-#     plt.xlabel('Actual Scenery Score')
-#     plt.ylabel('(Predicted-Actual) Scenery Score')
-#     plt.savefig('diffVsActual.pdf')
+  # predicted vs actual scenery score
+    plt.plot(actualFull,predicFull)
+    plt.xlabel('Actual Scenery Score')
+    plt.ylabel('Predicted Scenery Score')
+    plt.savefig('predictedVsActual.pdf')
+
+    plt.clf()
+  # (predicted - actual) vs actual
+    plt.plot(actualFull,(predicFull-actualFull))
+    plt.xlabel('Actual Scenery Score')
+    plt.ylabel('(Predicted-Actual) Scenery Score')
+    plt.savefig('diffVsActual.pdf')
+
+    myOutPerfDF = pd.DataFrame(list(zip(actualFull,predicFull)),columns=['Actual','Predicted'])
+    myOutPerfDF.to_csv('output_actualPredicted.csv')
+
+    myOutLossDF = pd.DataFrame(list(zip(epochs,lossesT,lossesV)),columns=['Epoch','LossTrain','LossVal'])
+    myOutLossDF.to_csv('output_lossEpoch.csv')
 
 def train(train_loader, model, criterion, optimizer, epoch, device):
     batch_time = AverageMeter()
@@ -288,9 +294,17 @@ def validate(val_loader, model, criterion, device):
             output = model(input_var)
             loss = criterion(output, target_var)
             
-            # for it,score in enumerate(target):
-            #     actual.append(score)
-            #     predicted.append(output[it])
+            # get actual and predicted for each point
+            print (target_var.size())
+            print (target_var.size(0))
+            print (output.size())
+            print (output.size(0))
+            for img in range(0,output.size()):
+                thisTar = target_var[img].data
+                thisOut = nn.functional.softmax(output[img],1).data.squeeze()
+                probs,idx = thisOut.sort(0,True)
+                actual.append(thisTar)
+                predicted.append(idx)
     
             # measure accuracy and record loss
             prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
