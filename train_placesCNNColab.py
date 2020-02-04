@@ -295,11 +295,7 @@ def validate(val_loader, model, criterion, device):
             loss = criterion(output, target_var)
             
             # get actual and predicted for each point
-            print (target_var.size())
-            print (target_var.size(0))
-            print (output.size())
-            print (output.size(0))
-            for img in range(0,output.size()):
+            for img in range(0,target_var.size(0)):
                 thisTar = target_var[img].data
                 thisOut = nn.functional.softmax(output[img],1).data.squeeze()
                 probs,idx = thisOut.sort(0,True)
