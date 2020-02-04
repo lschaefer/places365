@@ -299,9 +299,8 @@ def validate(val_loader, model, criterion, device):
             for img in range(0,target_var.size(0)):
                 thisTar = target_var[img].data
                 thisOut = theseOuts.argmax(dim=1)[img]
-                print(thisTar,thisOut)
-                actual.append(thisTar)
-                predicted.append(thisOut)
+                actual.append(float(thisTar))
+                predicted.append(float(thisOut))
     
             # measure accuracy and record loss
             prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
