@@ -210,6 +210,8 @@ def train(train_loader, model, criterion, optimizer, epoch, device):
     top1 = AverageMeter()
     top5 = AverageMeter()
 
+
+    model = model.cuda()
     # switch to train mode
     model.train()
 
@@ -226,7 +228,7 @@ def train(train_loader, model, criterion, optimizer, epoch, device):
         input_var = torch.autograd.Variable(input).cuda()
         target_var = torch.autograd.Variable(target).cuda()
         # compute output
-        output = model.cuda().(input_var)
+        output = model(input_var)
         loss = criterion(output, target_var)
 
         # for it,score in enumerate(target):
