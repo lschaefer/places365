@@ -82,9 +82,8 @@ def main():
     else:
         model = torch.nn.DataParallel(model)
 
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    if torch.cuda.is_available():
-        model = model.cuda()
+    model = model.cuda()
+    device = torch.device('cuda')
 
     #print (model)
     # optionally resume from a checkpoint
