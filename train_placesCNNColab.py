@@ -226,7 +226,7 @@ def train(train_loader, model, criterion, optimizer, epoch, device):
         input_var = torch.autograd.Variable(input).cuda()
         target_var = torch.autograd.Variable(target).cuda()
         # compute output
-        output = model(input_var)
+        output = model.cuda().(input_var)
         loss = criterion(output, target_var)
 
         # for it,score in enumerate(target):
