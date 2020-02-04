@@ -293,14 +293,15 @@ def validate(val_loader, model, criterion, device):
             # compute output
             output = model(input_var)
             loss = criterion(output, target_var)
+            theseOuts = nn.functional.softmax(output,1).data.squeeze()
             
             # get actual and predicted for each point
             for img in range(0,target_var.size(0)):
                 thisTar = target_var[img].data
-                thisOut = nn.functional.softmax(output[img],1).data.squeeze()
-                probs,idx = thisOut.sort(0,True)
+                thisOut = theseOuts.argmax(dim=1)[img]
+                print(thisTar,thisOut)
                 actual.append(thisTar)
-                predicted.append(idx)
+                predicted.append(thisOut)
     
             # measure accuracy and record loss
             prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
