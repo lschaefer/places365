@@ -82,8 +82,8 @@ def main():
     else:
         model = torch.nn.DataParallel(model)
 
-    device = torch.device('cuda') if torch.cuda.is_available() else torch.device('cpu')
-    model = model.to(device)
+    model = model.cuda()
+    device = torch.device('cuda')
 
     #print (model)
     # optionally resume from a checkpoint
@@ -114,8 +114,8 @@ def main():
     # Data loading code
     traindir = os.path.join(args.data, 'train')
     valdir = os.path.join(args.data, 'val')
-    scenicDF = pd.read_csv(args.data+'/newImagesWithJpg.tsv',sep='\t',nrows=500)
-    scenicDF = scenicDF[['Images','Average']]
+    #scenicDF = pd.read_csv(args.data+'/newImagesWithJpg.tsv',sep='\t')
+    #scenicDF = scenicDF[['Images','Average']]
     normalize = transforms.Normalize(mean=[0.485, 0.456, 0.406],
                                      std=[0.229, 0.224, 0.225])
 
@@ -209,6 +209,8 @@ def train(train_loader, model, criterion, optimizer, epoch, device):
     top1 = AverageMeter()
     top5 = AverageMeter()
 
+
+    model = model.cuda()
     # switch to train mode
     model.train()
 
@@ -222,8 +224,8 @@ def train(train_loader, model, criterion, optimizer, epoch, device):
         target.to(device)
 
         target = target
-        input_var = torch.autograd.Variable(input)
-        target_var = torch.autograd.Variable(target)
+        input_var = torch.autograd.Variable(input).cuda()
+        target_var = torch.autograd.Variable(target).cuda()
         # compute output
         output = model(input_var)
         loss = criterion(output, target_var)
@@ -279,8 +281,8 @@ def validate(val_loader, model, criterion, device):
             input.to(device)
             target.to(device)
 
-            input_var = torch.autograd.Variable(input)
-            target_var = torch.autograd.Variable(target)
+            input_var = torch.autograd.Variable(input).cuda()
+            target_var = torch.autograd.Variable(target).cuda()
     
             # compute output
             output = model(input_var)
@@ -352,8 +354,8 @@ def accuracy(output, target, topk=(1,)):
     batch_size = target.size(0)
 
     _, pred = output.topk(maxk, 1, True, True)
-    pred = pred.t()
-    correct = pred.eq(target.view(1, -1).expand_as(pred))
+    pred = pred.t().cuda()
+    correct = pred.eq(target.view(1, -1).cuda().expand_as(pred))
 
     res = []
     for k in topk:
