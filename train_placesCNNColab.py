@@ -85,6 +85,11 @@ def main():
     model = model.cuda()
     device = torch.device('cuda')
 
+    # update the fully connected layer
+    nInF,nOutF = model.module.fc.in_features,10 # input size from original; 10 integer outputs
+    model.module.fc = torch.nn.Linear(nInF,nOutF,bias=True)
+    print (model)
+
     #print (model)
     # optionally resume from a checkpoint
     if args.resume:
@@ -101,13 +106,8 @@ def main():
 
     for param in model.module.parameters():
         param.requires_grad = False
-
-    # update the fully connected layer
-    nInF,nOutF = model.module.fc.in_features,10 # input size from original; 10 integer outputs
-    model.module.fc = torch.nn.Linear(nInF,nOutF,bias=True)
     for param in model.module.fc.parameters():
         param.requires_grad = True
-    print (model)
 
     cudnn.benchmark = True
 
