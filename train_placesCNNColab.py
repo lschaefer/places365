@@ -305,7 +305,8 @@ def validate(val_loader, model, criterion, device):
                 predicted.append(float(thisOut))
     
             # measure accuracy and record loss
-            prec1, prec5 = accuracy(output.data, target, topk=(1, 5))
+            myTop=5 if args.num_outClasses>3 else 3
+            prec1, prec5 = accuracy(output.data, target, topk=(1, myTop))
             losses.update(loss.data, input.size(0))
             top1.update(prec1, input.size(0))
             top5.update(prec5, input.size(0))
