@@ -58,7 +58,8 @@ parser.add_argument('-e', '--evaluate', dest='evaluate', action='store_true',
                     help='evaluate model on validation set')
 parser.add_argument('--pretrained', dest='pretrained', action='store_false',
                     help='use pre-trained model')
-parser.add_argument('--num_classes',default=365, type=int, help='num of class in the model')
+parser.add_argument('--num_classes',default=365, type=int, help='num of class in the input model')
+parser.add_argument('--num_outClasses',default=10, type=int, help='num of class in the output model')
 parser.add_argument('--dataset',default='places365',help='which dataset to train')
 
 best_prec1 = 0
@@ -86,7 +87,7 @@ def main():
     device = torch.device('cuda')
 
     # update the fully connected layer
-    nInF,nOutF = model.module.fc.in_features,10 # input size from original; 10 integer outputs
+    nInF,nOutF = model.module.fc.in_features,args.num_outClasses # input size from original; 10 integer outputs
     model.module.fc = torch.nn.Linear(nInF,nOutF,bias=True)
     print (model)
 
@@ -184,7 +185,7 @@ def main():
         plt.plot(epochs,lossesV, 'g', label='Test')
     
         plt.xlabel('Epoch')
-        plt.ylabel('Root Mean Squared Error')
+        plt.ylabel('Loss')
         plt.legend(loc='best')  
         plt.savefig('errorVsEpoch.pdf')
     
